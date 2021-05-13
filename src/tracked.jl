@@ -172,6 +172,8 @@ function deriv!(t::NTuple{N,Any}, v::NTuple{N,Any}) where N
     return nothing
 end
 
+deriv!(t::StaticArray, v::AbstractArray) = deriv!(Tuple(t), Tuple(v))
+
 # pulling values from origin #
 #----------------------------#
 
@@ -223,6 +225,8 @@ unseed!(x::AbstractArray, i) = unseed!(x[i])
 capture(t::TrackedReal) = ifelse(hastape(t), t, value(t))
 capture(t::TrackedArray) = t
 capture(t::AbstractArray) = istracked(t) ?  map!(capture, similar(t), t) : copy(t)
+# `StaticArray`s don't support mutation unless the eltype is a bits type (`isbitstype`).
+capture(t::SA) where SA <: StaticArray = istracked(t) ? SA(map(capture, t)) : copy(t)
 
 ########################
 # Conversion/Promotion #

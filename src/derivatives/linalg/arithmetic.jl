@@ -33,6 +33,9 @@ for A in ARRAY_TYPES
     @eval @inline Base.:+(x::$(A), y::TrackedArray{V,D}) where {V,D} = record_plus(x, y, D)
 end
 
+@inline Base.:+(x::TrackedArray{V,D}, y::StaticArray) where {V,D} = record_plus(x, Array(y), D)
+@inline Base.:+(x::StaticArray, y::TrackedArray{V,D}) where {V,D} = record_plus(Array(x), y, D)
+
 function record_plus(x, y, ::Type{D}) where D
     tp = tape(x, y)
     out = track(value(x) + value(y), D, tp)
@@ -107,6 +110,9 @@ for A in ARRAY_TYPES
     @eval Base.:-(x::TrackedArray{V,D}, y::$(A)) where {V,D} = record_minus(x, y, D)
     @eval Base.:-(x::$(A), y::TrackedArray{V,D}) where {V,D} = record_minus(x, y, D)
 end
+
+@inline Base.:-(x::TrackedArray{V,D}, y::StaticArray) where {V,D} = record_minus(x, Array(y), D)
+@inline Base.:-(x::StaticArray, y::TrackedArray{V,D}) where {V,D} = record_minus(Array(x), y, D)
 
 function Base.:-(x::TrackedArray{V,D}) where {V,D}
     tp = tape(x)
