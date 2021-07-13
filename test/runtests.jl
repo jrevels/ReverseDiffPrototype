@@ -14,6 +14,10 @@ println("running MacrosTests...")
 t = @elapsed include(joinpath(TESTDIR, "MacrosTests.jl"))
 println("done (took $t seconds).")
 
+println("running ChainRulesTests...")
+t = @elapsed include(joinpath(TESTDIR, "ChainRulesTests.jl"))
+println("done (took $t seconds).")
+
 println("running ScalarTests...")
 t = @elapsed include(joinpath(TESTDIR, "derivatives/ScalarTests.jl"))
 println("done (took $t seconds).")

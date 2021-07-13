@@ -237,6 +237,67 @@ macro grad(expr)
         end
     end |> esc
 end
+
+
+"""
+    ReverseDiff.@grad_from_cr Base.sin
+
+The `@grad_from_cr` macro provides a way to import adjoints defined in ChainRules to ReverseDiff.
+"""
+macro grad_from_cr(f)
+    @gensym tp output_value output back closure cls_args cls_kwargs
+    return quote
+        $f(x::Vararg{Union{ReverseDiff.TrackedReal, ReverseDiff.TrackedArray}}) = ReverseDiff.track($f, x...)
+        function $ReverseDiff.track(::typeof($f), args...; kwargs...)
+            $tp = $ReverseDiff.tape(args...)
+            $output_value, $back = ChainRules.rrule($f, map(ReverseDiff.value, args)...; kwargs...)
+            $output = $ReverseDiff.track($output_value, $tp)
+            $closure($cls_args...; $cls_kwargs...) = ChainRules.rrule($f, map(ReverseDiff.value, $cls_args)...; $cls_kwargs...)
+            $ReverseDiff.record!(
+                $tp,
+                $ReverseDiff.SpecialInstruction,
+                $f,
+                args,
+                $output,
+                ($back, $closure, kwargs),
+            )
+            return $output
+        end
+
+        if !hasmethod(
+            $ReverseDiff.special_reverse_exec!,
+            Tuple{$ReverseDiff.SpecialInstruction{typeof($f)}},
+        )
+            @noinline function $ReverseDiff.special_reverse_exec!(instruction::$ReverseDiff.SpecialInstruction{typeof($f)})
+                output = instruction.output
+                input = instruction.input
+                back = instruction.cache[1]
+                back_output = back($ReverseDiff.deriv(output))
+                input_derivs = back_output[2:end]
+                @assert input_derivs isa Tuple
+                $ReverseDiff._add_to_deriv!.(input, input_derivs)
+                $ReverseDiff.unseed!(output)
+                return nothing
+            end
+        end
+
+        if !hasmethod(
+            $ReverseDiff.special_forward_exec!,
+            Tuple{$ReverseDiff.SpecialInstruction{typeof($f)}},
+        )
+            @noinline function $ReverseDiff.special_forward_exec!(instruction::$ReverseDiff.SpecialInstruction{typeof($f)})
+                output, input = instruction.output, instruction.input
+                $ReverseDiff.pull_value!.(input)
+                pullback = instruction.cache[2]
+                kwargs = instruction.cache[3]
+                out_value = pullback(input...; kwargs...)[1]
+                $ReverseDiff.value!(output, out_value)
+                return nothing
+            end
+        end
+    end |> esc
+end
+
 _add_to_deriv!(d1, d2) = nothing
 function _add_to_deriv!(d1::Union{TrackedReal, AbstractArray{<:TrackedReal}}, d2)
     increment_deriv!(d1, d2)
